@@ -19,10 +19,12 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   arrayUnion,
   arrayRemove,
-  onSnapshot
+  onSnapshot,
+  increment
 } from "firebase/firestore";
 
 // Firebase configuration
@@ -88,10 +90,12 @@ export {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   arrayUnion,
   arrayRemove,
   onSnapshot,
   updateSearchCount,
-  updateFavoriteCount
+  updateFavoriteCount,
+  increment
 };

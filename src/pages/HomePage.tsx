@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { db, collection, query, getDocs, orderBy, where, onSnapshot } from "../lib/firebase";
+import { db, collection, query, getDocs, orderBy, where, onSnapshot, doc } from "../lib/firebase";
 import { useAuth } from "../hooks/useAuth";
 import SearchBar from "../components/SearchBar";
 import RecipeCard, { Recipe } from "../components/RecipeCard";

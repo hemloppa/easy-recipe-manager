@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, Edit, Trash, ChevronDown, ChevronUp, Tag } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { db, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDoc } from "../lib/firebase";
+import { db, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove, getDoc, increment } from "../lib/firebase";
 import { toast } from "sonner";
 
 export interface Recipe {
