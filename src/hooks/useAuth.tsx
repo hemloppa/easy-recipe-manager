@@ -1,14 +1,12 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { 
-  auth, 
+  auth,
   db,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
   doc,
-  setDoc
+  setDoc,
+  getDoc,
+  subscribeToAuth
 } from "../lib/firebase";
 
 interface User {
@@ -33,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = subscribeToAuth((user) => {
       if (user) {
         setUser({
           uid: user.uid,
@@ -51,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     try {
       setError(null);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
 
       // Create user document in Firestore
@@ -73,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
-      await signInWithEmailAndPassword(auth, email, password);
+      await auth.signInWithEmailAndPassword(email, password);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
@@ -87,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logOut = async () => {
     try {
       setError(null);
-      await signOut(auth);
+      await auth.signOut();
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
