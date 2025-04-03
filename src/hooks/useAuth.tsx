@@ -6,7 +6,10 @@ import {
   doc,
   setDoc,
   getDoc,
-  subscribeToAuth
+  subscribeToAuth,
+  registerWithEmail,
+  loginWithEmail,
+  logoutUser
 } from "../lib/firebase";
 
 interface User {
@@ -49,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     try {
       setError(null);
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      const userCredential = await registerWithEmail(email, password);
       const user = userCredential.user;
 
       // Create user document in Firestore
@@ -71,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
-      await auth.signInWithEmailAndPassword(email, password);
+      await loginWithEmail(email, password);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
@@ -85,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logOut = async () => {
     try {
       setError(null);
-      await auth.signOut();
+      await logoutUser();
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
