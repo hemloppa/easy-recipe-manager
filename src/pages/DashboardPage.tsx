@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { db, doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "../lib/firebase";
+import { db, doc, getDoc, collection, query, where, getDocs, orderBy, limit, Timestamp } from "../lib/firebase";
 import { useAuth } from "../hooks/useAuth";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Recipe } from "../components/RecipeCard";
@@ -27,36 +27,52 @@ const DashboardPage = () => {
         
         if (statsSnap.exists()) {
           setStats(statsSnap.data() as { searchCount: number; favoriteCount: number });
+        } else {
+          // Initialize stats if they don't exist
+          console.log("Stats document doesn't exist, using defaults");
+          setStats({ searchCount: 0, favoriteCount: 0 });
         }
 
-        // Get count of user's recipes
-        const userRecipesQuery = query(
-          collection(db, "recipes"),
-          where("creatorId", "==", user.uid)
-        );
-        const userRecipesSnap = await getDocs(userRecipesQuery);
-        setRecipesCount(userRecipesSnap.size);
+        // Get count of user's recipes - without using compound queries that need indexes
+        const recipesCollectionRef = collection(db, "recipes");
+        const recipesSnapshot = await getDocs(recipesCollectionRef);
+        
+        const userRecipes = recipesSnapshot.docs.filter(doc => {
+          const data = doc.data();
+          return data.creatorId === user.uid || data.userId === user.uid;
+        });
+        
+        setRecipesCount(userRecipes.length);
 
-        // Get user's recent recipes
-        const recentRecipesQuery = query(
-          collection(db, "recipes"),
-          where("creatorId", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          limit(5)
-        );
-        const recentRecipesSnap = await getDocs(recentRecipesQuery);
-        setRecentRecipes(recentRecipesSnap.docs.map(doc => doc.data() as Recipe));
+        // Get user's recent recipes - avoiding the compound query that needs an index
+        const userRecentRecipes = userRecipes
+          .map(doc => doc.data() as Recipe)
+          .sort((a, b) => {
+            // Handle both Timestamp objects and server timestamps that might be dates
+            const aDate = a.createdAt instanceof Timestamp ? 
+              a.createdAt.toDate() : 
+              a.createdAt ? new Date(a.createdAt) : new Date(0);
+            
+            const bDate = b.createdAt instanceof Timestamp ? 
+              b.createdAt.toDate() : 
+              b.createdAt ? new Date(b.createdAt) : new Date(0);
+            
+            return bDate.getTime() - aDate.getTime();
+          })
+          .slice(0, 5);
+        
+        setRecentRecipes(userRecentRecipes);
 
         // Calculate top tags from all recipes
-        const allRecipesQuery = query(collection(db, "recipes"));
-        const allRecipesSnap = await getDocs(allRecipesQuery);
+        const allRecipes = recipesSnapshot.docs.map(doc => doc.data() as Recipe);
         
         const tagCounts: Record<string, number> = {};
-        allRecipesSnap.forEach(doc => {
-          const recipe = doc.data() as Recipe;
-          recipe.tags.forEach(tag => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-          });
+        allRecipes.forEach(recipe => {
+          if (recipe.tags && Array.isArray(recipe.tags)) {
+            recipe.tags.forEach(tag => {
+              tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+          }
         });
 
         const sortedTags = Object.entries(tagCounts)
@@ -85,6 +101,14 @@ const DashboardPage = () => {
       </div>
     );
   }
+
+  // Calculate total for pie chart percentage
+  const total = stats.searchCount + stats.favoriteCount + recipesCount;
+  const pieData = [
+    { name: 'Searches', value: stats.searchCount || 1 }, // Ensure at least 1 to avoid empty chart
+    { name: 'Favorites', value: stats.favoriteCount || 1 },
+    { name: 'Recipes', value: recipesCount || 1 }
+  ];
 
   return (
     <div className="p-6">
@@ -137,20 +161,26 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-xl font-semibold mb-4">Popular Tags</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={topTags}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#4ade80" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {topTags.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              No tags found. Add tags to your recipes!
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={topTags}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#4ade80" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow p-4">
@@ -159,11 +189,7 @@ const DashboardPage = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={[
-                    { name: 'Searches', value: stats.searchCount },
-                    { name: 'Favorites', value: stats.favoriteCount },
-                    { name: 'Recipes', value: recipesCount }
-                  ]}
+                  data={pieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -171,13 +197,16 @@ const DashboardPage = () => {
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, value }) => {
+                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                    return `${name} ${percentage}%`;
+                  }}
                 >
-                  {[0, 1, 2].map((entry, index) => (
+                  {pieData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value) => total > 0 ? `${Math.round((Number(value) / total) * 100)}%` : '0%'} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -199,7 +228,7 @@ const DashboardPage = () => {
                 <div className="flex-1">
                   <h3 className="font-medium">{recipe.title}</h3>
                   <p className="text-sm text-gray-500">
-                    {recipe.ingredients.length} ingredients • {recipe.tags.join(", ")}
+                    {recipe.ingredients?.length || 0} ingredients • {recipe.tags?.join(", ") || "No tags"}
                   </p>
                 </div>
                 <div>
