@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { loginWithEmail, registerWithEmail } from "../lib/firebase";
 import { toast } from "sonner";
 
 const AuthPage = () => {
@@ -11,7 +10,7 @@ const AuthPage = () => {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { error } = useAuth();
+  const { signIn, signUp, error } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,20 +25,16 @@ const AuthPage = () => {
 
     try {
       if (isLogin) {
-        await loginWithEmail(email, password);
+        await signIn(email, password);
         toast.success("Logged in successfully");
       } else {
-        await registerWithEmail(email, password);
+        await signUp(email, password);
         toast.success("Account created successfully");
       }
       navigate("/");
     } catch (error) {
       console.error("Authentication error:", error);
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error("An unknown error occurred");
-      }
+      // Auth error is handled by the useAuth hook already
     } finally {
       setIsSubmitting(false);
     }

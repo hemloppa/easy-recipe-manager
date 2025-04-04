@@ -25,7 +25,10 @@ const FavoritesPage = () => {
         const userDoc = await getDoc(userRef);
         
         if (!userDoc.exists()) {
-          toast.error("User data not found");
+          console.log("Creating user document for:", user.uid);
+          // If user document doesn't exist, create it
+          await fetch(`${window.location.origin}/api/create-user-doc?uid=${user.uid}`);
+          setFavorites([]);
           setIsLoading(false);
           return;
         }
@@ -46,6 +49,8 @@ const FavoritesPage = () => {
 
         for (let i = 0; i < favoriteIds.length; i += batchSize) {
           const batch = favoriteIds.slice(i, i + batchSize);
+          if (batch.length === 0) continue;
+          
           const recipesQuery = query(
             collection(db, "recipes"),
             where("recipe_id", "in", batch)

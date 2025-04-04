@@ -1,4 +1,3 @@
-
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
@@ -71,6 +70,28 @@ export const logoutUser = async () => {
     return await signOut(auth);
   } catch (error) {
     console.error("Error signing out", error);
+    throw error;
+  }
+};
+
+// Create or update user document
+export const createOrUpdateUserDocument = async (userId: string, email: string | null) => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        user_id: userId,
+        email: email,
+        favorites: [],
+        createdAt: serverTimestamp()
+      });
+      console.log("User document created for:", userId);
+    }
+    return userRef;
+  } catch (error) {
+    console.error("Error creating/updating user document:", error);
     throw error;
   }
 };

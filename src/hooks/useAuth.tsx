@@ -9,7 +9,8 @@ import {
   subscribeToAuth,
   registerWithEmail,
   loginWithEmail,
-  logoutUser
+  logoutUser,
+  createOrUpdateUserDocument
 } from "../lib/firebase";
 
 interface User {
@@ -34,12 +35,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAuth((user) => {
-      if (user) {
+    const unsubscribe = subscribeToAuth((authUser) => {
+      if (authUser) {
         setUser({
-          uid: user.uid,
-          email: user.email
+          uid: authUser.uid,
+          email: authUser.email
         });
+        
+        // Ensure the user document exists whenever a user logs in
+        createOrUpdateUserDocument(authUser.uid, authUser.email)
+          .catch(err => console.error("Error ensuring user document exists:", err));
       } else {
         setUser(null);
       }
@@ -55,12 +60,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userCredential = await registerWithEmail(email, password);
       const user = userCredential.user;
 
-      // Create user document in Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        user_id: user.uid,
-        email: user.email,
-        favorites: []
-      });
+      // Create user document in Firestore with explicit fields
+      await createOrUpdateUserDocument(user.uid, user.email);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
