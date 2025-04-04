@@ -49,13 +49,19 @@ const DashboardPage = () => {
           .map(doc => doc.data() as Recipe)
           .sort((a, b) => {
             // Handle both Timestamp objects and server timestamps that might be dates
-            const aDate = a.createdAt instanceof Timestamp ? 
-              a.createdAt.toDate() : 
-              a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const getDateValue = (timestamp: any): Date => {
+              if (timestamp instanceof Timestamp) {
+                return timestamp.toDate();
+              } else if (timestamp && typeof timestamp.toDate === 'function') {
+                return timestamp.toDate();
+              } else if (timestamp) {
+                return new Date(timestamp);
+              }
+              return new Date(0);
+            };
             
-            const bDate = b.createdAt instanceof Timestamp ? 
-              b.createdAt.toDate() : 
-              b.createdAt ? new Date(b.createdAt) : new Date(0);
+            const aDate = getDateValue(a.createdAt);
+            const bDate = getDateValue(b.createdAt);
             
             return bDate.getTime() - aDate.getTime();
           })
